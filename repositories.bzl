@@ -134,8 +134,8 @@ def com_google_errorprone_error_prone_annotations():
 def com_google_guava():
   native.maven_jar(
       name = "com_google_guava_guava",
-      artifact = "com.google.guava:guava:20.0",
-      sha1 = "89507701249388e1ed5ddcf8c41f4ce1be7831ef",
+      artifact = "com.google.guava:guava:22.0",
+      sha1 = "3564ef3803de51fb0530a8377ec6100b33b0d073",
   )
 
 def com_google_protobuf():

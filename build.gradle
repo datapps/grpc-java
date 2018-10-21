@@ -1,7 +1,10 @@
 buildscript {
   repositories {
-    mavenLocal()
-    maven {
+   mavenLocal()
+   maven {
+      url "http://maven.aliyun.com/nexus/content/repositories/central/"
+   } 
+   maven {
       url "https://plugins.gradle.org/m2/"
     }
   }
@@ -12,7 +15,60 @@ buildscript {
     classpath 'net.ltgt.gradle:gradle-apt-plugin:0.13'
     classpath "me.champeau.gradle:jmh-gradle-plugin:0.4.4"
     classpath 'me.champeau.gradle:japicmp-gradle-plugin:0.2.5'
+    classpath "org.jfrog.buildinfo:build-info-extractor-gradle:latest.release"
   }
+}
+
+apply plugin: 'java'
+apply plugin: 'maven-publish'
+apply plugin: "com.jfrog.artifactory"
+
+allprojects {
+
+    apply plugin: 'maven-publish'
+    apply plugin: 'com.jfrog.artifactory'
+    configure(subprojects.findAll { new File(it.projectDir, 'src').directory }) {
+        apply plugin: 'java'
+    }
+    group = "io.grpc"
+    version = "1.12.0-datapps" // CURRENT_GRPC_VERSION   
+
+    repositories {
+        maven { url 'http://maven.aliyun.com/nexus/content/repositories/central/' }
+        maven {
+            url 'http://192.168.1.133:8081/artifactory/datapps'
+            credentials {
+                username = "${artifactory_user}"
+                password = "${artifactory_password}"
+            }
+        }
+    }
+
+} 
+
+artifactoryPublish.skip = true
+
+
+def javaProjects() {
+    subprojects.findAll { new File(it.projectDir, 'src').directory }
+}
+
+configure(javaProjects()) {
+    apply plugin: 'java'
+    apply plugin: 'maven-publish'
+
+    dependencies {
+        testCompile 'junit:junit:4.7'
+    }
+
+    publishing {
+        publications {
+            mavenJava(MavenPublication) {
+                from components.java
+                artifact(file("$rootDir/gradle.properties"))
+            }
+        }
+    }
 }
 
 subprojects {
@@ -52,7 +108,7 @@ subprojects {
     idea.module.inheritOutputDirs = true
 
     group = "io.grpc"
-    version = "1.12.0" // CURRENT_GRPC_VERSION
+    version = "1.12.0-datapps" // CURRENT_GRPC_VERSION
 
     sourceCompatibility = 1.6
     targetCompatibility = 1.6
@@ -100,7 +156,7 @@ subprojects {
         javaPluginPath = "$rootDir/compiler/build/exe/java_plugin/$protocPluginBaseName$exeSuffix"
 
         nettyVersion = '4.1.22.Final'
-        guavaVersion = '20.0'
+        guavaVersion = '22.0'
         protobufVersion = '3.5.1'
         protocVersion = '3.5.1-1'
         protobufNanoVersion = '3.0.0-alpha-5'
@@ -397,6 +453,43 @@ subprojects {
         }
         maxHeapSize = '1500m'
     }
+}
+
+
+artifactoryPublish.skip = true
+
+
+artifactory {
+    clientConfig.setIncludeEnvVars(true)
+    clientConfig.info.addEnvironmentProperty('test.adding.dynVar',new java.util.Date().toString())
+
+    contextUrl = "${artifactory_contextUrl}"
+    publish {
+        repository {
+            repoKey = 'datapps' // The Artifactory repository key to publish to
+            username = "${artifactory_user}" // The publisher user name
+            password = "${artifactory_password}" // The publisher password
+        }
+        defaults {
+            publishBuildInfo = true
+            publishArtifacts = true
+            // Reference to Gradle publications defined in the build script.
+            // This is how we tell the Artifactory Plugin which artifacts should be
+            // published to Artifactory.
+            publications('mavenJava')
+            // Properties to be attached to the published artifacts.
+            publishPom = true // Publish generated POM files to Artifactory (true by default)
+            publishIvy = false // Publish generated Ivy descriptor files to Artifactory (true by default)
+        }
+    }
+}
+
+publishing {
+	publications {
+		mavenJava(MavenPublication) {
+			from components.java
+		}
+	}
 }
 
 // Run with: ./gradlew japicmp --continue
